@@ -1,0 +1,20 @@
+{
+  "name": "baotuong9a4",
+  "private": true,
+  "description": "Báo tường điện tử lớp 9A4 – công cụ tạo ảnh web và mã QR",
+  "type": "module",
+  "scripts": {
+    "build:images": "node tools/build-images.mjs",
+    "build:qr": "node tools/build-qr.mjs",
+    "vendor": "node tools/vendor.mjs",
+    "serve": "python3 -m http.server 8080"
+  },
+  "devDependencies": {
+    "@fontsource/be-vietnam-pro": "^5.2.5",
+    "@fontsource/dancing-script": "^5.2.5",
+    "@fontsource/playfair-display": "^5.2.5",
+    "page-flip": "2.0.7",
+    "qrcode": "^1.5.4",
+    "sharp": "^0.34.1"
+  }
+}
