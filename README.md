@@ -1,7 +1,7 @@
 # baotuong9a4.github.io
 
 Báo tường điện tử lớp 9A4 – Chào mừng ngày Nhà giáo Việt Nam 20/11.
-Tập san “Người gieo nắng – Những mùa hoa” · Chi đội 9A4 · Trường THCS Hoàng Mai. 52 trang, 2 video, có nhạc nền.
+Tập san “Người gieo nắng – Những mùa hoa” · Chi đội 9A4 · Trường THCS Hoàng Mai. 53 trang, 2 video, có nhạc nền.
 
 **Xem trực tuyến:** https://baotuong9a4.github.io/
 
@@ -57,6 +57,9 @@ npm run build        # = build:media → build:images → stamp
   hoặc có tệp lạ. Riêng trang được khai báo `"fillMissingPage": true` trong `tools/media.json` (hiện là **trang 4**,
   không có ảnh gốc): trang được dựng từ khung hình thật của video, đặt trên nền xanh navy. Nếu sau này có `4.png`,
   script sẽ dùng ảnh đó.
+- Ảnh **không đặt tên theo số** (ví dụ trang cuối `lời kết, hòm thư góp ý- trang cuối.png`) được khai báo trong
+  `tools/pages.json` (`append`) và **nối thêm sau trang có số lớn nhất**, đúng thứ tự khai báo — không theo tên tệp.
+  Ảnh khác tỉ lệ trang được giữ nguyên, đặt giữa khung đúng tỉ lệ, phần dư là chính ảnh làm mờ.
 - `stamp`: gắn mã phiên bản `?v=` theo nội dung cho CSS/JS/media → người xem cũ luôn nhận bản mới.
 
 Sau đó commit `assets/`, `index.html` và push. Bìa đứng riêng, các trang sau ghép thành cặp; không chèn trang trống giả.

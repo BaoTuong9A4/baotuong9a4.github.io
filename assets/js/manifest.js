@@ -1,5 +1,5 @@
 // TỰ ĐỘNG TẠO bởi tools/build-images.mjs — không sửa tay.
-// Thứ tự trang theo số: 1 → 52.
+// Thứ tự trang theo số: 1 → 53 (trang 53+ nối thêm từ tools/pages.json).
 window.BOOK_PAGES = [{"n":1,"w":1491,"h":1055,"full":"assets/pages/full/p001-6993e8b3.webp","md":"assets/pages/md/p001-c1a5c61a.webp","thumb":"assets/pages/thumb/p001-c83a7429.webp"},
   {"n":2,"w":1491,"h":1055,"full":"assets/pages/full/p002-c4d7bec4.webp","md":"assets/pages/md/p002-c7c8791c.webp","thumb":"assets/pages/thumb/p002-dd04e650.webp"},
   {"n":3,"w":1491,"h":1055,"full":"assets/pages/full/p003-02480e47.webp","md":"assets/pages/md/p003-e3378c1c.webp","thumb":"assets/pages/thumb/p003-003ce2bc.webp"},
@@ -51,4 +51,5 @@ window.BOOK_PAGES = [{"n":1,"w":1491,"h":1055,"full":"assets/pages/full/p001-699
   {"n":49,"w":1491,"h":1055,"full":"assets/pages/full/p049-eae273ef.webp","md":"assets/pages/md/p049-2f71ec6e.webp","thumb":"assets/pages/thumb/p049-582f88cf.webp"},
   {"n":50,"w":1491,"h":1055,"full":"assets/pages/full/p050-5f7a43be.webp","md":"assets/pages/md/p050-f485ee28.webp","thumb":"assets/pages/thumb/p050-d1f1362e.webp"},
   {"n":51,"w":1491,"h":1055,"full":"assets/pages/full/p051-dee76d95.webp","md":"assets/pages/md/p051-e66e0ec7.webp","thumb":"assets/pages/thumb/p051-829e0a4d.webp"},
-  {"n":52,"w":1491,"h":1055,"full":"assets/pages/full/p052-de1b4467.webp","md":"assets/pages/md/p052-488d2d19.webp","thumb":"assets/pages/thumb/p052-a57afe15.webp"}];
+  {"n":52,"w":1491,"h":1055,"full":"assets/pages/full/p052-de1b4467.webp","md":"assets/pages/md/p052-488d2d19.webp","thumb":"assets/pages/thumb/p052-a57afe15.webp"},
+  {"n":53,"w":1536,"h":1087,"full":"assets/pages/full/p053-6deb5f05.webp","md":"assets/pages/md/p053-7c53ab2a.webp","thumb":"assets/pages/thumb/p053-825a7ddf.webp"}];
