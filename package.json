@@ -4,7 +4,10 @@
   "description": "Báo tường điện tử lớp 9A4 – công cụ tạo ảnh web và mã QR",
   "type": "module",
   "scripts": {
+    "build:media": "node tools/build-media.mjs",
     "build:images": "node tools/build-images.mjs",
+    "stamp": "node tools/stamp.mjs",
+    "build": "node tools/build-media.mjs && node tools/build-images.mjs && node tools/stamp.mjs",
     "build:qr": "node tools/build-qr.mjs",
     "vendor": "node tools/vendor.mjs",
     "serve": "python3 -m http.server 8080"

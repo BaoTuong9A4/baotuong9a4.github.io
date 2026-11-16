@@ -1,0 +1,29 @@
+{
+  "_ghi_chu": "Nguồn media gốc (không đưa lên repo) và cách tạo bản web. Đường dẫn source tính từ thư mục repo. Chạy: npm run build:media",
+  "music": {
+    "source": "../sound/nhac-nen-bui-phan.m4a",
+    "output": "assets/media/nhac-nen-bui-phan.m4a",
+    "targetLufs": -21,
+    "maxTruePeak": -3
+  },
+  "videos": [
+    {
+      "page": 4,
+      "source": "../video/video1-page4.mp4",
+      "output": "assets/media/video-trang-04.mp4",
+      "poster": "assets/media/video-trang-04.jpg",
+      "posterTime": 10,
+      "maxWidth": 1280,
+      "crf": 24,
+      "fillMissingPage": true
+    },
+    {
+      "page": 21,
+      "source": "../video/video2-page 21.mp4",
+      "output": "assets/media/video-trang-21.mp4",
+      "poster": "assets/media/video-trang-21.jpg",
+      "posterTime": 2,
+      "remux": true
+    }
+  ]
+}

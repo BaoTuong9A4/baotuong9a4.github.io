@@ -13,6 +13,10 @@ const OUT = path.join(ROOT, 'assets', 'pages');
 const SIZES = { full: { width: null, quality: 86 }, md: { width: 1100, quality: 82 }, thumb: { width: 360, quality: 72 } };
 const OK_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 const pad = (n) => String(n).padStart(3, '0');
+// Trang thiếu trong thư mục ảnh nhưng được gắn video với "fillMissingPage" (tools/media.json):
+// dựng trang từ khung hình thật của video (npm run build:media tạo sẵn .tmp/video-pages/N.png).
+const MEDIA = JSON.parse(await fs.readFile(path.join(ROOT, 'tools', 'media.json'), 'utf8'));
+const videoPages = new Map((MEDIA.videos || []).filter((v) => v.fillMissingPage).map((v) => [v.page, path.join(ROOT, '.tmp', 'video-pages', v.page + '.png')]));
 
 const entries = (await fs.readdir(SRC, { withFileTypes: true })).filter((e) => e.isFile() && !e.name.startsWith('.'));
 const pages = new Map();
@@ -28,7 +32,13 @@ for (const e of entries) {
 }
 const nums = [...pages.keys()].sort((a, b) => a - b); // sắp xếp theo SỐ, không theo chữ
 const max = nums.at(-1) || 0;
-for (let i = 1; i <= max; i++) if (!pages.has(i)) problems.push(`Thiếu trang ${i}`);
+const filled = [];
+for (let i = 1; i <= max; i++) {
+  if (pages.has(i)) continue;
+  if (videoPages.has(i)) {
+    try { await fs.access(videoPages.get(i)); filled.push(i); } catch { problems.push(`Thiếu trang ${i} (có video nhưng chưa chạy npm run build:media)`); }
+  } else problems.push(`Thiếu trang ${i}`);
+}
 
 const hashes = new Map();
 for (const n of nums) {
@@ -37,32 +47,62 @@ for (const n of nums) {
   else hashes.set(h, n);
 }
 if (problems.length) { console.error('Dừng lại vì phát hiện vấn đề:\n - ' + problems.join('\n - ')); process.exit(1); }
-console.log(`Nguồn: ${SRC}\nTìm thấy ${nums.length} trang (1 → ${max}), không thiếu, không trùng.`);
+console.log(`Nguồn: ${SRC}\nTìm thấy ${nums.length} ảnh trang (số ${nums[0]} → ${max}), không trùng.`);
+if (filled.length) console.log(`Trang không có ảnh, dựng từ khung hình video: ${filled.join(', ')}`);
+
+/** Trang video: khung hình thật của video đặt giữa nền mờ cùng khung hình, đúng khổ trang. */
+async function videoPageImage(frame, W, H) {
+  // Nền xanh navy + viền vàng mảnh, cùng tông với giao diện báo tường.
+  const bi = Math.round(W * 0.022);
+  const bg = await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+    <defs><radialGradient id="g" cx="50%" cy="45%" r="75%"><stop offset="0" stop-color="#22397f"/><stop offset=".6" stop-color="#14245a"/><stop offset="1" stop-color="#0a1433"/></radialGradient></defs>
+    <rect width="100%" height="100%" fill="url(#g)"/>
+    <rect x="${bi}" y="${bi}" width="${W - bi * 2}" height="${H - bi * 2}" rx="${bi * 0.6}" fill="none" stroke="#e7b95e" stroke-opacity=".55" stroke-width="3"/>
+  </svg>`)).png().toBuffer();
+  const fw = Math.round(W * 0.84); const meta = await sharp(frame).metadata(); const fh = Math.round(fw * meta.height / meta.width);
+  const r = Math.round(W * 0.014);
+  const mask = Buffer.from(`<svg width="${fw}" height="${fh}"><rect width="${fw}" height="${fh}" rx="${r}" ry="${r}"/></svg>`);
+  const fg = await sharp(frame).resize(fw, fh).composite([{ input: mask, blend: 'dest-in' }]).png().toBuffer();
+  const pad = 40;
+  const shadow = await sharp({ create: { width: fw + pad * 2, height: fh + pad * 2, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    .composite([{ input: Buffer.from(`<svg width="${fw + pad * 2}" height="${fh + pad * 2}"><rect x="${pad}" y="${pad + 14}" width="${fw}" height="${fh}" rx="${r}" fill="rgba(0,0,0,.55)"/></svg>`) }])
+    .blur(18).png().toBuffer();
+  const left = Math.round((W - fw) / 2); const top = Math.round((H - fh) / 2);
+  return sharp(bg).composite([{ input: shadow, left: left - pad, top: top - pad }, { input: fg, left, top }]).png().toBuffer();
+}
+const first = await sharp(path.join(SRC, pages.get(nums[0]))).metadata();
+for (const n of filled) pages.set(n, { buffer: await videoPageImage(videoPages.get(n), first.width, first.height), label: `khung hình video trang ${n}` });
+const allNums = [...pages.keys()].sort((a, b) => a - b);
 
 for (const dir of Object.keys(SIZES)) {
   await fs.mkdir(path.join(OUT, dir), { recursive: true });
-  for (const f of await fs.readdir(path.join(OUT, dir))) if (/^p\d{3}\.webp$/.test(f)) await fs.unlink(path.join(OUT, dir, f));
+  for (const f of await fs.readdir(path.join(OUT, dir))) if (/^p\d{3}(-[0-9a-f]{8})?\.webp$/.test(f)) await fs.unlink(path.join(OUT, dir, f));
 }
 
 const manifest = [];
-for (const n of nums) {
-  const src = path.join(SRC, pages.get(n));
+for (const n of allNums) {
+  const entry = pages.get(n);
+  const src = typeof entry === 'string' ? path.join(SRC, entry) : entry.buffer;
   const meta = await sharp(src).metadata();
-  const item = { n, w: meta.width, h: meta.height, source: pages.get(n) };
+  const item = { n, w: meta.width, h: meta.height, source: typeof entry === 'string' ? entry : entry.label };
+  if (typeof entry !== 'string') item.videoPage = true;
   for (const [dir, cfg] of Object.entries(SIZES)) {
-    const file = `assets/pages/${dir}/p${pad(n)}.webp`;
     let img = sharp(src).rotate();
     if (cfg.width && meta.width > cfg.width) img = img.resize({ width: cfg.width });
-    const info = await img.webp({ quality: cfg.quality, effort: 5, smartSubsample: true }).toFile(path.join(ROOT, file));
+    const buf = await img.webp({ quality: cfg.quality, effort: 5, smartSubsample: true }).toBuffer();
+    // Tên tệp kèm mã nội dung: ảnh đổi thì tên đổi, người xem cũ không bị kẹt ảnh cũ trong bộ nhớ đệm.
+    const hash = crypto.createHash('sha256').update(buf).digest('hex').slice(0, 8);
+    const file = `assets/pages/${dir}/p${pad(n)}-${hash}.webp`;
+    await fs.writeFile(path.join(ROOT, file), buf);
     item[dir] = file;
-    item[dir + 'Bytes'] = info.size;
+    item[dir + 'Bytes'] = buf.length;
   }
   manifest.push(item);
   process.stdout.write(`\r  đã xử lý trang ${n}/${max}`);
 }
 console.log();
 
-const js = `// TỰ ĐỘNG TẠO bởi tools/build-images.mjs — không sửa tay.\n// Thứ tự trang theo số: 1 → ${max}.\nwindow.BOOK_PAGES = ${JSON.stringify(manifest.map(({ n, w, h, full, md, thumb }) => ({ n, w, h, full, md, thumb })), null, 0).replace(/},{/g, '},\n  {')};\n`;
+const js = `// TỰ ĐỘNG TẠO bởi tools/build-images.mjs — không sửa tay.\n// Thứ tự trang theo số: 1 → ${max}.\nwindow.BOOK_PAGES = ${JSON.stringify(manifest.map(({ n, w, h, full, md, thumb, videoPage }) => ({ n, w, h, full, md, thumb, ...(videoPage ? { videoPage } : {}) })), null, 0).replace(/},{/g, '},\n  {')};\n`;
 await fs.writeFile(path.join(ROOT, 'assets', 'js', 'manifest.js'), js);
 
 // Ảnh chia sẻ mạng xã hội (1200×630) và biểu tượng, lấy từ bìa thật.

@@ -1,7 +1,7 @@
 # baotuong9a4.github.io
 
 Báo tường điện tử lớp 9A4 – Chào mừng ngày Nhà giáo Việt Nam 20/11.
-Tập san “Người gieo nắng – Những mùa hoa” · Chi đội 9A4 · Trường THCS Hoàng Mai.
+Tập san “Người gieo nắng – Những mùa hoa” · Chi đội 9A4 · Trường THCS Hoàng Mai. 52 trang, 2 video, có nhạc nền.
 
 **Xem trực tuyến:** https://baotuong9a4.github.io/
 
@@ -14,72 +14,78 @@ Trang tĩnh thuần HTML/CSS/JS, không cần máy chủ hay tài khoản. Hiệ
 | Đường dẫn | Nội dung |
 |---|---|
 | `index.html` | Trang chính (màn hình mở đầu + trình đọc) |
-| `assets/js/config.js` | **Cấu hình nhạc nền và video** — tệp duy nhất cần sửa tay |
+| `assets/js/config.js` | **Cấu hình nhạc nền và video** (đường dẫn, tiêu đề, âm lượng, vị trí nút video) |
 | `assets/js/manifest.js` | Danh sách trang (tự tạo, không sửa tay) |
-| `assets/pages/full/` | Ảnh trang độ nét gốc (WebP) — dùng khi phóng to / màn hình lớn |
-| `assets/pages/md/` | Ảnh trang rộng 1100px — dùng trên điện thoại và chế độ hai trang |
-| `assets/pages/thumb/` | Ảnh thu nhỏ cho mục “Chọn trang” |
-| `tools/` | Script tạo ảnh, đóng gói thư viện, tạo mã QR |
+| `assets/js/versions.js` | Mã phiên bản của nhạc/video (tự tạo, không sửa tay) |
+| `assets/pages/{full,md,thumb}/` | Ảnh trang WebP: độ nét gốc / rộng 1100px / ảnh thu nhỏ. Tên tệp kèm mã nội dung (`p004-xxxxxxxx.webp`) |
+| `assets/media/` | Nhạc nền và video bản web + ảnh đại diện video |
+| `tools/media.json` | Nguồn media gốc và cách tạo bản web |
+| `tools/` | Script tạo ảnh, media, gắn phiên bản, đóng gói thư viện, tạo mã QR |
 
-Ảnh gốc xuất từ Canva (PNG, ~143 MB) **không** đưa lên repo; chỉ đưa bản WebP đã tối ưu (~27 MB).
+Ảnh PNG gốc, video gốc và nhạc gốc **không** đưa lên repo; chỉ đưa bản đã tối ưu cho web.
 
 ## Xem thử trên máy
 
 ```bash
-python3 -m http.server 8080      # hoặc: npm run serve
-# mở http://localhost:8080/
+npm run serve        # rồi mở http://localhost:8080/
 ```
 
-(Cần chạy qua máy chủ cục bộ; mở trực tiếp `index.html` bằng `file://` có thể bị trình duyệt chặn một số tính năng.)
+(Máy chủ Python không hỗ trợ tải từng đoạn nên Safari có thể không phát video khi xem thử trên máy;
+GitHub Pages thì hỗ trợ đầy đủ.)
 
-## Thêm / thay trang
+## Cập nhật nội dung (ảnh, video, nhạc)
 
-1. Đặt ảnh xuất từ Canva vào một thư mục, đặt tên theo số trang: `1.png`, `2.png`, … (`.png`, `.jpg`, `.webp`).
-   Trang 1 luôn là bìa.
-2. Chạy:
+Cần Node.js và `ffmpeg`. Đặt tệp gốc theo cấu trúc thư mục cạnh repo:
 
-   ```bash
-   npm install
-   npm run build:images -- "/đường/dẫn/tới/thư-mục-ảnh"
-   ```
-
-   Mặc định script đọc `../Images/Bao-Tuong-9A4`. Script sắp xếp theo **số** (1, 2, … 10 chứ không phải 1, 10, 2),
-   và **dừng lại** nếu thiếu số trang, trùng số, trùng nội dung hoặc có tệp không hỗ trợ.
-3. Kiểm tra lại trên máy rồi commit thư mục `assets/pages/` và `assets/js/manifest.js`.
-
-Số trang lẻ hay chẵn đều được: bìa đứng riêng, các trang sau ghép thành cặp; không bao giờ chèn trang trống giả.
-
-## Thêm nhạc nền
-
-Hiện **chưa có** tệp nhạc; trang tự chạy ở chế độ không nhạc (nút chính hiển thị “Mở sách”).
-
-1. Chép một bản MP3 mà lớp **được phép sử dụng và phát công khai** (ví dụ bản hòa tấu “Bụi phấn” do lớp tự thu,
-   hoặc bản có giấy phép rõ ràng) vào `assets/audio/nhac-nen.mp3`. Nên dưới ~8 MB (128 kbps).
-2. Trong `assets/js/config.js` sửa:
-
-   ```js
-   music: { src: 'assets/audio/nhac-nen.mp3', title: 'Bụi phấn (hòa tấu)', volume: 0.3, loop: true },
-   ```
-
-Khi đã có nhạc: nút “Mở sách và nghe nhạc” và “Đọc không nhạc” xuất hiện; nhạc bắt đầu nhỏ, lặp lại nhẹ nhàng,
-tự tạm dừng khi chuyển tab hoặc xem video. Trên iPhone, âm lượng chỉnh bằng phím của máy (Safari không cho chỉnh bằng mã).
-Tiếng lật trang được tạo bằng Web Audio, không cần tệp, có thể tắt trong nút Âm thanh.
-
-## Thêm video
-
-Trong `assets/js/config.js`, gắn video vào số trang:
-
-```js
-videos: {
-  12: [{ src: 'assets/video/loi-chuc.mp4', title: 'Lời chúc 20/11', poster: 'assets/video/loi-chuc.jpg' }],
-  27: [{ src: 'assets/video/ky-niem-1.mp4', title: 'Kỷ niệm 1' }, { src: 'assets/video/ky-niem-2.mp4', title: 'Kỷ niệm 2' }],
-},
+```
+9A4/Images/Bao-Tuong-9A4/1.png, 2.png, …   ← ảnh trang, đặt tên theo số (bìa = 1)
+9A4/video/…                                  ← video gốc (khai báo trong tools/media.json)
+9A4/sound/nhac-nen-bui-phan.m4a              ← nhạc nền gốc
 ```
 
-- Khi người đọc đang mở trang có video, nút **“Xem video”** hiện phía dưới sách (không chèn nút lên tranh).
-  Video mở trong hộp thoại với điều khiển gốc của trình duyệt (có toàn màn hình); nhạc nền tạm dừng và phát lại khi đóng.
-- Dùng MP4 (H.264 + AAC) để chạy được trên iPhone. GitHub chặn tệp > 100 MB và khuyến nghị repo < 1 GB —
-  nên nén mỗi video dưới ~50 MB, hoặc dùng `src` là URL trực tiếp tới tệp video lưu ở nơi khác.
+Rồi chạy:
+
+```bash
+npm install
+npm run build        # = build:media → build:images → stamp
+```
+
+- `build:media`: tạo video MP4 (H.264/AAC, chỉ mục ở đầu tệp để phát ngay), ảnh đại diện từ khung hình video,
+  và bản nhạc web đã **giảm âm lượng tuyến tính** về khoảng −21 LUFS (bản gốc rất to, có đỉnh vượt 0 dB).
+  Thêm `--force` để tạo lại tất cả.
+- `build:images`: sắp xếp ảnh theo **số** (1, 2, … 10), **dừng lại** nếu thiếu số trang, trùng số, trùng nội dung
+  hoặc có tệp lạ. Riêng trang được khai báo `"fillMissingPage": true` trong `tools/media.json` (hiện là **trang 4**,
+  không có ảnh gốc): trang được dựng từ khung hình thật của video, đặt trên nền xanh navy. Nếu sau này có `4.png`,
+  script sẽ dùng ảnh đó.
+- `stamp`: gắn mã phiên bản `?v=` theo nội dung cho CSS/JS/media → người xem cũ luôn nhận bản mới.
+
+Sau đó commit `assets/`, `index.html` và push. Bìa đứng riêng, các trang sau ghép thành cặp; không chèn trang trống giả.
+
+## Nhạc nền
+
+`assets/media/nhac-nen-bui-phan.m4a` (từ `sound/nhac-nen-bui-phan.m4a`, giảm 10,1 dB, đỉnh −8,9 dBTP, không cắt bớt).
+
+- Nhạc chỉ phát khi người đọc bấm **“Mở sách và nghe nhạc”**; **“Đọc không nhạc”** hoàn toàn im lặng (không tải tệp nhạc).
+- Âm lượng mặc định 70% của bản đã giảm âm (≈ 25% độ to bản gốc), nhạc to dần trong ~2 giây; hết bài tự phát lại (`loop`).
+- Trên iPhone, Safari không cho chỉnh âm lượng bằng mã → dùng phím âm lượng của máy; nhờ bản đã giảm âm nên vẫn nhẹ nhàng.
+- Nhạc tạm dừng khi chuyển tab và khi xem video, chỉ phát lại nếu trước đó người đọc đang bật nhạc.
+- Tiếng lật trang được tạo bằng Web Audio, không cần tệp, có thể tắt trong nút Âm thanh.
+
+## Video
+
+Khai báo trong `assets/js/config.js` theo **số trang** (số trong tên ảnh gốc, bìa = 1):
+
+| Trang | Tệp gốc | Bản web |
+|---|---|---|
+| 4 | `video/video1-page4.mp4` (1920×1080, 75 MB, chỉ mục ở cuối tệp) | `assets/media/video-trang-04.mp4` (1280×720 H.264/AAC, ~19 MB) |
+| 21 | `video/video2-page 21.mp4` (480×854, 11 MB) | `assets/media/video-trang-21.mp4` (giữ nguyên hình/tiếng) |
+
+- Nút **“Xem video”** đặt ngay trên trang (vị trí chỉnh bằng `button: { x, y }`, tính theo % trang) và một nút
+  phía dưới sách khi trang đó đang mở. Có ở cả chế độ sách lật và cuộn dọc.
+- Video mở trong hộp thoại đúng tỉ lệ, có điều khiển gốc và toàn màn hình; chỉ tải khi người đọc bấm xem.
+  Đóng hộp thoại thì video dừng hẳn và ngừng tải. Nhạc nền không bao giờ phát chồng lên tiếng video.
+- Thêm video mới: khai báo trong `tools/media.json`, chạy `npm run build`, rồi thêm vào `config.js`.
+  GitHub chặn tệp > 100 MB — script tự báo lỗi nếu bản web vượt giới hạn.
 
 ## Triển khai
 

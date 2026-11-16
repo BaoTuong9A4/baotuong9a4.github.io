@@ -8,6 +8,9 @@
   const RATIO = TOTAL ? PAGES[0].w / PAGES[0].h : 1491 / 1055;
   const STORE = 'bt9a4:';
   const $ = (id) => document.getElementById(id);
+  // Gắn phiên bản theo nội dung (tools/stamp.mjs) để người xem cũ nhận đúng tệp mới.
+  const VERS = window.ASSET_VERSIONS || {};
+  const ver = (src) => (src && VERS[src] ? src + (src.includes('?') ? '&' : '?') + 'v=' + VERS[src] : src);
   const mqReduce = window.matchMedia('(prefers-reduced-motion: reduce)');
   const reduced = () => mqReduce.matches;
   const coarse = window.matchMedia('(pointer: coarse)').matches;
@@ -92,7 +95,7 @@
   /* ------------------------------------------------------------------ */
   const Music = {
     available: false, audio: null, wanted: false, playing: false, pausedForHidden: false, pausedForVideo: false,
-    volume: Math.min(1, Math.max(0, store.get('vol', CFG.music && CFG.music.volume != null ? CFG.music.volume : 0.3))),
+    volume: Math.min(1, Math.max(0, store.get('vol2', CFG.music && CFG.music.volume != null ? CFG.music.volume : 0.3))),
     volumeSettable: true, fadeRaf: 0, listeners: new Set(),
 
     async probe() {
@@ -101,7 +104,7 @@
       try {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 4000);
-        const r = await fetch(src, { method: 'HEAD', cache: 'no-store', signal: ctrl.signal });
+        const r = await fetch(ver(src), { method: 'HEAD', cache: 'no-store', signal: ctrl.signal });
         clearTimeout(t);
         const type = r.headers.get('content-type') || '';
         if (!r.ok || /text\/html/i.test(type)) return false;
@@ -114,7 +117,7 @@
           a.onloadedmetadata = () => done(true);
           a.onerror = () => done(false);
           setTimeout(() => done(false), 4000);
-          a.src = src;
+          a.src = ver(src);
         });
         if (!ok) return false;
       }
@@ -124,7 +127,8 @@
     ensure() {
       if (this.audio) return this.audio;
       const a = new Audio();
-      a.src = CFG.music.src;
+      a.src = ver(CFG.music.src);
+      // Tự phát lại từ đầu khi hết bài.
       a.loop = CFG.music.loop !== false;
       a.preload = 'auto';
       a.volume = 0;
@@ -133,6 +137,10 @@
       this.volumeSettable = Math.abs(a.volume - 0.5) < 0.01;
       a.volume = 0;
       a.addEventListener('pause', () => { this.playing = false; this.emit(); });
+      // Dự phòng: nếu trình duyệt bỏ qua thuộc tính loop, tự quay về đầu bài.
+      a.addEventListener('ended', () => {
+        if (a.loop && this.wanted && !this.blocked()) { a.currentTime = 0; a.play().catch(() => {}); }
+      });
       a.addEventListener('playing', () => { this.playing = true; this.emit(); });
       a.addEventListener('error', () => {
         this.playing = false; this.wanted = false; this.emit();
@@ -156,9 +164,13 @@
       this.fadeRaf = requestAnimationFrame(step);
     },
 
+    /** Nhạc không bao giờ phát chồng lên tiếng video. */
+    blocked() { return el.dlgVideo.open; },
+
     /** Gọi trực tiếp trong sự kiện bấm của người dùng để trình duyệt cho phép phát. */
     play() {
       if (!this.available) return Promise.resolve(false);
+      if (this.blocked()) { this.wanted = true; this.pausedForVideo = true; this.emit(); return Promise.resolve(false); }
       const a = this.ensure();
       this.wanted = true;
       this.pausedForHidden = false;
@@ -166,6 +178,7 @@
       let p;
       try { p = a.play(); } catch (e) { p = Promise.reject(e); }
       return Promise.resolve(p).then(() => {
+        if (this.blocked()) { a.pause(); return false; }
         this.fadeTo(this.volume, 2200);
         this.emit();
         return true;
@@ -178,16 +191,17 @@
       });
     },
 
-    pause(userInitiated = true) {
+    pause(userInitiated = true, instant = false) {
       if (userInitiated) this.wanted = false;
       const a = this.audio;
-      if (!a || a.paused) { this.emit(); return; }
+      if (!a || a.paused) { cancelAnimationFrame(this.fadeRaf); this.emit(); return; }
+      if (instant) { cancelAnimationFrame(this.fadeRaf); a.pause(); return; }
       this.fadeTo(0, 450, () => a.pause());
     },
 
     setVolume(v) {
       this.volume = v;
-      store.set('vol', v);
+      store.set('vol2', v);
       if (this.audio && this.volumeSettable && this.playing) { cancelAnimationFrame(this.fadeRaf); this.audio.volume = v; }
     },
 
@@ -269,7 +283,7 @@
       if (Music.audio && !Music.audio.paused) { Music.pausedForHidden = true; cancelAnimationFrame(Music.fadeRaf); Music.audio.pause(); }
     } else if (Music.pausedForHidden) {
       Music.pausedForHidden = false;
-      if (Music.wanted && !Music.pausedForVideo) Music.play();
+      if (Music.wanted && !Music.pausedForVideo && !Music.blocked()) Music.play();
     }
   });
 
@@ -318,7 +332,28 @@
     const shade = document.createElement('div');
     shade.className = 'page__shade';
     div.append(img, shade);
+    if (p.videoPage) { div.classList.add('page--video'); img.alt = 'Trang ' + p.n + ' — video (khung hình mở đầu)'; }
+    const vids = videosFor(p.n);
+    if (vids.length) div.appendChild(videoButton(vids, p.n));
     return div;
+  }
+
+  /** Nút “Xem video” đặt ngay trên trang (vị trí lấy từ config: x, y tính theo % khổ trang). */
+  function videoButton(vids, n) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'page-video';
+    const pos = vids[0].button || {};
+    b.style.setProperty('--x', (pos.x != null ? pos.x : 50) + '%');
+    b.style.setProperty('--y', (pos.y != null ? pos.y : 92) + '%');
+    b.setAttribute('aria-label', vids.length > 1 ? `Xem ${vids.length} video của trang ${n}` : `Xem video: ${vids[0].title || 'trang ' + n}`);
+    b.innerHTML = '<span class="page-video__icon" aria-hidden="true"><svg class="icon"><use href="#i-play"/></svg></span><span class="page-video__text">' +
+      (vids.length > 1 ? `Xem ${vids.length} video` : 'Xem video') + '</span>';
+    // Bấm nút không được kích hoạt lật trang, vuốt hay phóng to của sách.
+    ['pointerdown', 'mousedown', 'touchstart'].forEach((t) => b.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
+    b.addEventListener('dblclick', (e) => e.stopPropagation());
+    b.addEventListener('click', (e) => { e.stopPropagation(); openVideos(vids.map((v) => ({ ...v, page: n })), b); });
+    return b;
   }
 
   /** Chỉ giữ ảnh ở gần trang đang đọc để tiết kiệm bộ nhớ trên điện thoại. */
@@ -519,7 +554,7 @@
     const r = el.shell.getBoundingClientRect();
     return x < r.left + r.width / 2 ? vis[0] : vis[1];
   }
-  el.stage.addEventListener('dblclick', (e) => { if (!state.flipping) openZoom(pageIndexAt(e.clientX, e.clientY)); });
+  el.stage.addEventListener('dblclick', (e) => { if (!state.flipping && !e.target.closest('.page-video')) openZoom(pageIndexAt(e.clientX, e.clientY)); });
   let pinch = null; let lastTap = null; let tapStart = null;
   const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
   el.stage.addEventListener('touchstart', (e) => {
@@ -546,6 +581,7 @@
   window.addEventListener('touchend', (e) => {
     if (pinch) { stopIfPinch(e); if (e.touches.length === 0) pinch = null; return; }
     if (!tapStart || !el.stage.contains(e.target)) return;
+    if (e.target.closest && e.target.closest('.page-video')) { tapStart = null; lastTap = null; return; }
     const t = e.changedTouches[0];
     const moved = Math.hypot(t.clientX - tapStart.x, t.clientY - tapStart.y);
     const quick = Date.now() - tapStart.t < 300;
@@ -770,8 +806,15 @@
     PAGES.forEach((p, i) => {
       const li = document.createElement('li');
       li.id = 'cuon-' + p.n; li.dataset.index = i;
-      li.innerHTML = `<button type="button" aria-label="Phóng to trang ${p.n}"><img alt="Trang ${p.n}" decoding="async" width="${p.w}" height="${p.h}"></button><p>Trang ${p.n} / ${TOTAL}</p>`;
+      li.innerHTML = `<button type="button" class="scrollview__zoom" aria-label="Phóng to trang ${p.n}"><img alt="Trang ${p.n}" decoding="async" width="${p.w}" height="${p.h}"></button><p>Trang ${p.n} / ${TOTAL}</p>`;
       li.querySelector('button').addEventListener('click', () => openZoom(i));
+      const vids = videosFor(p.n);
+      if (vids.length) {
+        const wrap = document.createElement('div');
+        wrap.className = 'scrollview__page';
+        const zoomBtn = li.querySelector('button');
+        li.insertBefore(wrap, zoomBtn); wrap.append(zoomBtn, videoButton(vids, p.n));
+      }
       frag.appendChild(li);
     });
     el.scrollList.appendChild(frag);
@@ -816,48 +859,67 @@
   /* Video (cấu hình trong config.js)                                    */
   /* ------------------------------------------------------------------ */
   let pillVideos = [];
+  let videoOpener = null;
   function renderVideoPill(nums) {
     pillVideos = [];
     nums.forEach((n) => videosFor(n).forEach((v) => pillVideos.push({ ...v, page: n })));
     el.btnVideo.hidden = pillVideos.length === 0;
     if (pillVideos.length) {
-      el.videoPillLabel.textContent = pillVideos.length === 1 ? (pillVideos[0].title ? 'Xem video: ' + pillVideos[0].title : 'Xem video') : `Xem ${pillVideos.length} video`;
+      const pages = [...new Set(pillVideos.map((v) => v.page))];
+      el.videoPillLabel.textContent = pillVideos.length === 1 ? `Xem video · trang ${pages[0]}` : `Xem ${pillVideos.length} video`;
+      el.btnVideo.setAttribute('aria-label', pillVideos.length === 1 ? `Xem video của trang ${pages[0]}` : `Xem ${pillVideos.length} video của trang ${pages.join(', ')}`);
     }
   }
   function playVideo(v) {
     const vid = el.videoEl;
     el.videoTitle.textContent = v.title || `Video trang ${v.page}`;
     vid.pause();
-    if (v.poster) vid.poster = v.poster; else vid.removeAttribute('poster');
+    // Khung hình đúng tỉ lệ video để xem lớn nhất có thể trên mọi màn hình.
+    const ar = v.width && v.height ? v.width / v.height : 16 / 9;
+    el.dlgVideo.style.setProperty('--ar', String(ar));
+    el.dlgVideo.classList.toggle('is-portrait', ar < 1);
+    if (v.poster) vid.poster = ver(v.poster); else vid.removeAttribute('poster');
     vid.controls = true;
     vid.preload = 'metadata';
-    vid.src = v.src;
+    vid.src = ver(v.src);
     vid.load();
     el.videoList.querySelectorAll('button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.src === v.src)));
     vid.play().catch(() => { /* người dùng tự bấm phát bằng nút gốc */ });
   }
-  function openVideos() {
-    if (!pillVideos.length) return;
-    Music.pausedForVideo = Music.wanted && Music.audio && !Music.audio.paused;
-    if (Music.pausedForVideo) Music.pause(false);
+  function openVideos(list, opener) {
+    list = list && list.length ? list : pillVideos;
+    if (!list.length || el.dlgVideo.open) return;
+    videoOpener = opener || document.activeElement;
+    // Dừng nhạc ngay lập tức (không chờ nhỏ dần) để không chồng lên tiếng video.
+    Music.pausedForVideo = !!(Music.wanted && Music.audio && !Music.audio.paused);
+    Music.pause(false, true);
+    hideToast();
     el.videoList.innerHTML = '';
-    el.videoList.hidden = pillVideos.length < 2;
-    pillVideos.forEach((v, k) => {
+    el.videoList.hidden = list.length < 2;
+    list.forEach((v, k) => {
       const b = document.createElement('button');
       b.type = 'button'; b.dataset.src = v.src; b.textContent = v.title || `Video ${k + 1}`;
       b.addEventListener('click', () => playVideo(v));
       el.videoList.appendChild(b);
     });
     el.dlgVideo.showModal();
-    playVideo(pillVideos[0]);
+    playVideo(list[0]);
   }
-  el.btnVideo.addEventListener('click', openVideos);
-  el.videoEl.addEventListener('play', () => { if (Music.audio && !Music.audio.paused) { Music.pausedForVideo = Music.wanted; Music.pause(false); } });
-  el.videoEl.addEventListener('error', () => { if (el.dlgVideo.open && el.videoEl.getAttribute('src')) toast('Không mở được video này. Kiểm tra lại đường dẫn trong config.js.', null, 6000); });
+  el.btnVideo.addEventListener('click', () => openVideos(pillVideos, el.btnVideo));
+  el.videoEl.addEventListener('play', () => {
+    if (Music.audio && !Music.audio.paused) { Music.pausedForVideo = Music.pausedForVideo || Music.wanted; Music.pause(false, true); }
+  });
+  el.videoEl.addEventListener('error', () => { if (el.dlgVideo.open && el.videoEl.getAttribute('src')) toast('Không mở được video này. Vui lòng thử lại sau.', null, 6000); });
   el.dlgVideo.addEventListener('close', () => {
     const vid = el.videoEl;
-    vid.pause(); vid.removeAttribute('src'); vid.load(); vid.controls = false;
-    if (Music.pausedForVideo) { Music.pausedForVideo = false; if (Music.wanted) Music.play(); }
+    // Dừng hẳn video và ngừng tải dữ liệu.
+    vid.pause(); vid.removeAttribute('src'); vid.removeAttribute('poster'); vid.load(); vid.controls = false;
+    const wfs = document.webkitFullscreenElement || document.fullscreenElement;
+    if (wfs === vid) { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch { /* bỏ qua */ } }
+    // Chỉ phát lại nhạc nếu trước khi mở video, nhạc đang bật.
+    if (Music.pausedForVideo) { Music.pausedForVideo = false; if (Music.wanted && !document.hidden) Music.play(); }
+    if (videoOpener && document.contains(videoOpener) && videoOpener.offsetParent) videoOpener.focus({ preventScroll: true });
+    videoOpener = null;
   });
 
   /* ------------------------------------------------------------------ */
@@ -996,5 +1058,5 @@
   });
 
   // Phục vụ kiểm thử tự động.
-  window.__book = { state, go, goTo, visiblePages, Music, FlipSound, openZoom, enterScroll, exitScroll };
+  window.__book = { state, go, goTo, visiblePages, Music, FlipSound, openZoom, enterScroll, exitScroll, openVideos };
 })();
