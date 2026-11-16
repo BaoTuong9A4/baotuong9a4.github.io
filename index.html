@@ -26,7 +26,7 @@
 
   <link rel="preload" href="assets/pages/md/p001-c1a5c61a.webp" as="image" type="image/webp" fetchpriority="high">
   <link rel="stylesheet" href="assets/vendor/fonts/fonts.css?v=e6cd429b">
-  <link rel="stylesheet" href="assets/css/style.css?v=9995acee">
+  <link rel="stylesheet" href="assets/css/style.css?v=c06649d2">
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
@@ -34,6 +34,7 @@
     <div class="ambient__rays"></div>
     <div class="ambient__sparkles" id="sparkles"></div>
   </div>
+  <canvas class="petals" id="petals" aria-hidden="true"></canvas>
 
   <!-- MÀN HÌNH MỞ ĐẦU -->
   <section class="intro" id="intro" aria-labelledby="introTitle">
@@ -73,10 +74,10 @@
         <button class="tool" id="btnScroll" type="button" aria-label="Chế độ cuộn dọc" title="Đọc kiểu cuộn dọc"><svg class="icon" aria-hidden="true"><use href="#i-scroll"/></svg></button>
         <button class="tool tool--layout" id="btnLayout" type="button" aria-label="Chuyển sang xem một trang" title="Một trang / hai trang" hidden><svg class="icon" aria-hidden="true"><use href="#i-single"/></svg></button>
         <button class="tool" id="btnMusic" type="button" aria-pressed="false" aria-label="Bật nhạc nền" title="Bật / tắt nhạc nền" hidden><svg class="icon" aria-hidden="true"><use href="#i-music-off"/></svg></button>
-        <button class="tool" id="btnSound" type="button" aria-expanded="false" aria-controls="soundPanel" aria-label="Cài đặt âm thanh" title="Âm thanh"><svg class="icon" aria-hidden="true"><use href="#i-volume"/></svg></button>
+        <button class="tool" id="btnSound" type="button" aria-expanded="false" aria-controls="soundPanel" aria-label="Âm thanh và hiệu ứng" title="Âm thanh · Hiệu ứng"><svg class="icon" aria-hidden="true"><use href="#i-volume"/></svg></button>
         <button class="tool" id="btnFullscreen" type="button" aria-pressed="false" aria-label="Toàn màn hình" title="Toàn màn hình" hidden><svg class="icon" aria-hidden="true"><use href="#i-expand"/></svg></button>
       </div>
-      <div class="sound-panel" id="soundPanel" role="group" aria-label="Âm thanh" hidden>
+      <div class="sound-panel" id="soundPanel" role="group" aria-label="Âm thanh và hiệu ứng" hidden>
         <div class="sound-panel__row" id="musicRow" hidden>
           <span class="sound-panel__label" id="musicTitle">Nhạc nền</span>
           <button class="switch" id="swMusic" type="button" role="switch" aria-checked="false" aria-labelledby="musicTitle"><span></span></button>
@@ -89,6 +90,10 @@
         <div class="sound-panel__row">
           <span class="sound-panel__label" id="flipSoundTitle">Tiếng lật trang</span>
           <button class="switch" id="swFlip" type="button" role="switch" aria-checked="false" aria-labelledby="flipSoundTitle"><span></span></button>
+        </div>
+        <div class="sound-panel__row">
+          <span class="sound-panel__label" id="fxTitle">Hiệu ứng cánh hoa</span>
+          <button class="switch" id="swFx" type="button" role="switch" aria-checked="true" aria-labelledby="fxTitle"><span></span></button>
         </div>
         <p class="sound-panel__note" id="musicMissing" hidden>Nhạc nền chưa được thêm vào báo tường.</p>
       </div>
@@ -202,6 +207,6 @@
   <script src="assets/js/config.js?v=92364de9"></script>
   <script src="assets/js/manifest.js?v=aea1f590"></script>
   <script src="assets/vendor/page-flip/page-flip.browser.js?v=bbaca0bb"></script>
-  <script src="assets/js/app.js?v=eed9b640"></script>
+  <script src="assets/js/app.js?v=780695bf"></script>
 </body>
 </html>

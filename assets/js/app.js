@@ -29,7 +29,7 @@
     btnThumbs: $('btnThumbs'), btnZoom: $('btnZoom'), btnScroll: $('btnScroll'), btnLayout: $('btnLayout'),
     btnMusic: $('btnMusic'), btnSound: $('btnSound'), btnFullscreen: $('btnFullscreen'),
     soundPanel: $('soundPanel'), musicRow: $('musicRow'), musicTitle: $('musicTitle'), swMusic: $('swMusic'), volRow: $('volRow'), volMusic: $('volMusic'),
-    volNote: $('volNote'), swFlip: $('swFlip'), musicMissing: $('musicMissing'),
+    volNote: $('volNote'), swFlip: $('swFlip'), swFx: $('swFx'), musicMissing: $('musicMissing'),
     btnVideo: $('btnVideo'), videoPillLabel: $('videoPillLabel'),
     dlgThumbs: $('dlgThumbs'), thumbGrid: $('thumbGrid'),
     dlgZoom: $('dlgZoom'), zoomViewport: $('zoomViewport'), zoomImg: $('zoomImg'), zoomTitle: $('zoomTitle'), zoomLoading: $('zoomLoading'),
@@ -79,15 +79,150 @@
       s.style.animationDuration = rnd(4.5, 8).toFixed(2) + 's';
       box.appendChild(s);
     }
-    for (let i = 0; i < 6; i++) {
-      const p = document.createElement('span');
-      p.className = 'petal';
-      p.style.left = rnd(20, 105) + '%';
-      p.style.top = '-4%';
-      p.style.animationDelay = (i * 3.6 + rnd(0, 2)).toFixed(2) + 's';
-      p.style.animationDuration = rnd(18, 26).toFixed(2) + 's';
-      box.appendChild(p);
+  })();
+
+  /* ------------------------------------------------------------------ */
+  /* Cánh hoa rơi: một canvas, số hạt cố định, một vòng requestAnimationFrame */
+  /* ------------------------------------------------------------------ */
+  const Petals = (() => {
+    const cv = $('petals');
+    const ctx = cv.getContext && cv.getContext('2d');
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const P = []; const SPRITES = [];
+    let W = 0, H = 0, dpr = 1, raf = 0, last = 0, rectAt = 0, content = null, enabled = store.get('effects', true);
+    let scale = 1, slow = 0, frames = 0; // tự giảm số hạt nếu máy yếu
+    // Màu hợp với báo tường: hồng hoa đào, hồng phấn, kem, vàng mai, đào.
+    const COLORS = [['#ffe1ec', '#f39bb8'], ['#fff0f5', '#f7b6cb'], ['#fff8ec', '#f3d9b0'], ['#fff3c8', '#f2c25e'], ['#ffe4d6', '#f0a184']];
+
+    function sprite([c1, c2], size) {
+      const s = document.createElement('canvas'); const px = Math.ceil(size * 2);
+      s.width = px; s.height = px;
+      const g = s.getContext('2d'); g.translate(px / 2, px / 2);
+      const w = size * 0.62, h = size;
+      const grad = g.createLinearGradient(-w, -h, w, h); grad.addColorStop(0, c1); grad.addColorStop(1, c2);
+      g.fillStyle = grad;
+      g.beginPath(); // cánh hoa: tròn ở đầu, khía nhẹ ở ngọn
+      g.moveTo(0, h * 0.5);
+      g.bezierCurveTo(w, h * 0.25, w * 0.9, -h * 0.45, w * 0.18, -h * 0.5);
+      g.lineTo(0, -h * 0.38); g.lineTo(-w * 0.18, -h * 0.5);
+      g.bezierCurveTo(-w * 0.9, -h * 0.45, -w, h * 0.25, 0, h * 0.5);
+      g.fill();
+      g.strokeStyle = 'rgba(255,255,255,.45)'; g.lineWidth = Math.max(0.6, size / 18);
+      g.beginPath(); g.moveTo(0, h * 0.42); g.quadraticCurveTo(w * 0.1, 0, 0, -h * 0.3); g.stroke();
+      return s;
     }
+    function speck() { // hạt sáng nhỏ như tuyết (điểm nhấn phụ)
+      const s = document.createElement('canvas'); s.width = s.height = 24;
+      const g = s.getContext('2d'); const r = g.createRadialGradient(12, 12, 0, 12, 12, 12);
+      r.addColorStop(0, 'rgba(255,250,235,1)'); r.addColorStop(.35, 'rgba(255,236,190,.6)'); r.addColorStop(1, 'rgba(255,228,163,0)');
+      g.fillStyle = r; g.fillRect(0, 0, 24, 24); return s;
+    }
+
+    /** Số hạt theo diện tích màn hình (có giới hạn), ít hơn khi đang đọc. */
+    function target() {
+      const area = W * H; const intro = !el.intro.hidden && el.reader.hidden;
+      const base = Math.max(20, Math.min(40, Math.round(area / 26000) + 10));
+      return { petals: Math.round(base * (intro ? 1 : 0.8) * scale), specks: Math.round(base * 0.25 * scale) };
+    }
+    function reset(p, initial) {
+      const r = content;
+      // Khi đang đọc trên màn hình rộng, ưu tiên rơi ở hai bên sách.
+      if (r && !p.speck && r.width < W * 0.8 && Math.random() < 0.6) {
+        const left = Math.random() < 0.5; p.x = left ? rnd(-10, r.left) : rnd(r.right, W + 10);
+      } else p.x = rnd(-20, W + 20);
+      p.y = initial ? rnd(-H * 0.1, H) : rnd(-60, -15);
+      const depth = Math.random(); // xa → nhỏ, chậm, mờ; gần → to, nhanh
+      p.z = depth;
+      p.size = p.speck ? rnd(5, 10) : 10 + depth * 16;
+      p.vy = (p.speck ? rnd(14, 30) : 26 + depth * 46) * rnd(0.85, 1.15);
+      p.vx = rnd(-8, 4);
+      p.amp = rnd(10, 38); p.freq = rnd(0.25, 0.7); p.ph = rnd(0, Math.PI * 2);
+      p.rot = rnd(0, Math.PI * 2); p.vr = rnd(-1.4, 1.4);
+      p.flip = rnd(0, Math.PI * 2); p.vf = rnd(0.8, 2.6);
+      p.alpha = p.speck ? rnd(0.4, 0.8) : 0.7 + depth * 0.3;
+      p.img = p.speck ? SPRITES.speck : SPRITES[Math.floor(Math.random() * SPRITES.length)];
+    }
+    function populate() {
+      const t = target(); let petals = 0, specks = 0;
+      P.forEach((p) => (p.speck ? specks++ : petals++));
+      while (petals < t.petals) { const p = { speck: false }; reset(p, true); P.push(p); petals++; }
+      while (specks < t.specks) { const p = { speck: true }; reset(p, true); P.push(p); specks++; }
+      // Bớt hạt dư (ví dụ khi chuyển từ màn hình mở đầu sang đọc): đánh dấu để rơi hết rồi bỏ.
+      let extraP = petals - t.petals, extraS = specks - t.specks;
+      P.forEach((p) => { p.retire = false; if (!p.speck && extraP > 0) { p.retire = true; extraP--; } else if (p.speck && extraS > 0) { p.retire = true; extraS--; } });
+    }
+    function resize() {
+      if (!ctx) return;
+      dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2);
+      W = window.innerWidth; H = window.innerHeight;
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (!SPRITES.length) { COLORS.forEach((c) => SPRITES.push(sprite(c, 20 * dpr))); SPRITES.speck = speck(); }
+      if (P.length) populate();
+    }
+    function contentRect() {
+      let node = null;
+      if (!el.reader.hidden && !el.reader.classList.contains('is-entering')) node = el.shell;
+      else if (!el.scrollView.hidden) node = el.scrollList;
+      if (!node) return null;
+      const r = node.getBoundingClientRect();
+      return { left: Math.max(0, r.left), right: Math.min(W, r.right), top: Math.max(0, r.top), bottom: Math.min(H, r.bottom), width: r.width };
+    }
+    function frame(now) {
+      raf = 0;
+      if (!running()) return;
+      const raw = now - (last || now); const dt = Math.min(0.05, raw / 1000); last = now;
+      if (raw > 0 && raw < 500) { frames++; if (raw > 26) slow++; }
+      if (frames >= 120) { if (slow > 40 && scale > 0.4) { scale -= 0.25; populate(); } frames = slow = 0; }
+      if (now - rectAt > 300) { content = contentRect(); rectAt = now; }
+      ctx.clearRect(0, 0, W, H);
+      const r = content; const t = now / 1000;
+      for (let i = P.length - 1; i >= 0; i--) {
+        const p = P[i];
+        p.y += p.vy * dt; p.x += p.vx * dt; p.rot += p.vr * dt; p.flip += p.vf * dt;
+        const x = p.x + Math.sin(t * p.freq * Math.PI * 2 + p.ph) * p.amp;
+        if (p.y > H + 30 || x < -60 || x > W + 60) {
+          if (p.retire) { P.splice(i, 1); continue; }
+          reset(p, false); continue;
+        }
+        let a = p.alpha, s = p.size;
+        // Trên trang sách: ít, nhỏ và trong suốt để không che chữ và ảnh.
+        if (r && x > r.left && x < r.right && p.y > r.top && p.y < r.bottom) {
+          if (p.speck || p.z > 0.45) continue;
+          a *= 0.3; s *= 0.6;
+        }
+        const k = s / (20 * dpr); // tỉ lệ so với sprite gốc
+        const fx = Math.cos(p.flip); // lật 3D: cánh hoa xoay nghiêng tự nhiên
+        ctx.globalAlpha = a * (p.speck ? 1 : 0.75 + 0.25 * Math.abs(fx));
+        ctx.setTransform(dpr * k * (p.speck ? 1 : Math.max(0.35, Math.abs(fx))) * Math.cos(p.rot), dpr * k * Math.sin(p.rot) * (p.speck ? 1 : Math.max(0.35, Math.abs(fx))),
+          -dpr * k * Math.sin(p.rot), dpr * k * Math.cos(p.rot), x * dpr, p.y * dpr);
+        const img = p.img; ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1;
+      raf = requestAnimationFrame(frame);
+    }
+    const dialogs = () => [el.dlgThumbs, el.dlgZoom, el.dlgVideo].some((d) => d.open);
+    function running() { return !!ctx && enabled && !reduced() && !document.hidden && !dialogs(); }
+    /** Bật/tắt vòng lặp theo trạng thái (tab ẩn, hộp thoại mở, giảm chuyển động, người đọc tắt). */
+    function sync() {
+      const on = running();
+      cv.hidden = !enabled || reduced() || !ctx;
+      if (on && !raf) { if (!W) resize(); if (!P.length) populate(); last = 0; raf = requestAnimationFrame(frame); }
+      else if (!on && raf) { cancelAnimationFrame(raf); raf = 0; }
+    }
+    function setEnabled(v) {
+      enabled = v; store.set('effects', v);
+      if (!v) { if (ctx) ctx.clearRect(0, 0, W, H); P.length = 0; }
+      sync();
+    }
+    window.addEventListener('resize', () => { if (W) resize(); });
+    document.addEventListener('visibilitychange', sync);
+    if (mqReduce.addEventListener) mqReduce.addEventListener('change', sync);
+    if ('MutationObserver' in window) {
+      const mo = new MutationObserver(sync);
+      [el.dlgThumbs, el.dlgZoom, el.dlgVideo].forEach((d) => mo.observe(d, { attributes: true, attributeFilter: ['open'] }));
+    }
+    return { sync, setEnabled, populate: () => { if (P.length) populate(); }, get enabled() { return enabled; }, get count() { return P.length; }, get running() { return !!raf; } };
   })();
 
   /* ------------------------------------------------------------------ */
@@ -258,6 +393,7 @@
     el.btnMusic.querySelector('use').setAttribute('href', on ? '#i-music' : '#i-music-off');
     el.swMusic.setAttribute('aria-checked', String(!!on));
     el.swFlip.setAttribute('aria-checked', String(FlipSound.enabled));
+    el.swFx.setAttribute('aria-checked', String(Petals.enabled));
     el.volMusic.value = Math.round(Music.volume * 100);
   }
   Music.on(renderSound);
@@ -265,6 +401,7 @@
   el.btnMusic.addEventListener('click', () => { (Music.playing ? Music.pause() : Music.play()); });
   el.swMusic.addEventListener('click', () => { (Music.playing ? Music.pause() : Music.play()); });
   el.swFlip.addEventListener('click', () => FlipSound.setEnabled(!FlipSound.enabled));
+  el.swFx.addEventListener('click', () => { Petals.setEnabled(!Petals.enabled); renderSound(); });
   el.volMusic.addEventListener('input', () => Music.setVolume(el.volMusic.value / 100));
 
   function toggleSoundPanel(force) {
@@ -1022,7 +1159,7 @@
       await new Promise((r) => setTimeout(r, reduced() ? 0 : 450));
       el.reader.classList.remove('is-entering');
     }
-    setTimeout(() => { el.intro.hidden = true; }, reduced() ? 0 : 700);
+    setTimeout(() => { el.intro.hidden = true; Petals.populate(); }, reduced() ? 0 : 700);
     el.stage.focus({ preventScroll: true });
 
     if (start.from === 'saved') {
@@ -1058,5 +1195,6 @@
   });
 
   // Phục vụ kiểm thử tự động.
-  window.__book = { state, go, goTo, visiblePages, Music, FlipSound, openZoom, enterScroll, exitScroll, openVideos };
+  window.__book = { state, go, goTo, visiblePages, Music, FlipSound, openZoom, enterScroll, exitScroll, openVideos, Petals };
+  Petals.sync();
 })();
