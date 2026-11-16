@@ -368,6 +368,11 @@
       disableFlipByClick: true, useMouseEvents: true, clickEventForward: true, startZIndex: 0,
     });
     state.pf = pf;
+    // Vuốt và lệnh lật bằng mã đều đi qua các hàm này: bỏ qua kiểm tra "chỉ góc trang" vốn chỉ dành cho cú nhấp.
+    ['flipNext', 'flipPrev', 'flip'].forEach((name) => {
+      const orig = pf[name].bind(pf);
+      pf[name] = (...args) => programmatic(() => orig(...args));
+    });
     pf.on('flip', (e) => { state.index = e.data; onPageChange(); });
     pf.on('changeState', (e) => {
       const s = e.data;
@@ -433,6 +438,13 @@
   }
 
   /* Điều hướng */
+  // StPageFlip áp cờ disableFlipByClick cả cho lệnh lật bằng mã (lỗi ở chế độ một trang): tạm tắt khi gọi.
+  function programmatic(fn) {
+    const set = state.pf.getSettings();
+    const prev = set.disableFlipByClick;
+    set.disableFlipByClick = false;
+    try { fn(); } finally { set.disableFlipByClick = prev; }
+  }
   function go(dir) {
     const pf = state.pf; if (!pf || state.flipping) return;
     if (reduced()) { dir > 0 ? pf.turnToNextPage() : pf.turnToPrevPage(); state.index = pf.getCurrentPageIndex(); updateShift(); onPageChange(); return; }
