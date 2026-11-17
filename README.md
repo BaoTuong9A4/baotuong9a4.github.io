@@ -1,7 +1,7 @@
 # baotuong9a4.github.io
 
 Báo tường điện tử lớp 9A4 – Chào mừng ngày Nhà giáo Việt Nam 20/11.
-Tập san “Người gieo nắng – Những mùa hoa” · Chi đội 9A4 · Trường THCS Hoàng Mai. 53 trang, 2 video, có nhạc nền.
+Tập san “Người gieo nắng – Những mùa hoa” · Chi đội 9A4 · Trường THCS Hoàng Mai. 54 trang, 2 video, có nhạc nền.
 
 **Xem trực tuyến:** https://baotuong9a4.github.io/
 
@@ -59,6 +59,9 @@ npm run build        # = build:media → build:images → stamp
   script sẽ dùng ảnh đó.
 - Ảnh **không đặt tên theo số** (ví dụ trang cuối `lời kết, hòm thư góp ý- trang cuối.png`) được khai báo trong
   `tools/pages.json` (`append`) và **nối thêm sau trang có số lớn nhất**, đúng thứ tự khai báo — không theo tên tệp.
+- Cũng trong `tools/pages.json`: `replace` thay ảnh của một trang gốc (hiện: bìa `1.png` → `anh-bia.jpeg`),
+  `insertAfter` chèn ảnh ngay sau một trang gốc (hiện: `chi-hang.jpeg` sau `19.png`, thành trang 20). Số trang
+  trong hai mục này là số ảnh gốc; các trang phía sau được đánh số lại liên tục (ảnh `20.png` → trang 21 …).
   Ảnh khác tỉ lệ trang được giữ nguyên, đặt giữa khung đúng tỉ lệ, phần dư là chính ảnh làm mờ.
 - `stamp`: gắn mã phiên bản `?v=` theo nội dung cho CSS/JS/media → người xem cũ luôn nhận bản mới.
 
@@ -76,12 +79,12 @@ Sau đó commit `assets/`, `index.html` và push. Bìa đứng riêng, các tran
 
 ## Video
 
-Khai báo trong `assets/js/config.js` theo **số trang** (số trong tên ảnh gốc, bìa = 1):
+Khai báo trong `assets/js/config.js` theo **số trang hiển thị** trong sách (bìa = 1, đã tính trang chèn thêm):
 
 | Trang | Tệp gốc | Bản web |
 |---|---|---|
 | 4 | `video/video1-page4.mp4` (1920×1080, 75 MB, chỉ mục ở cuối tệp) | `assets/media/video-trang-04.mp4` (1280×720 H.264/AAC, ~19 MB) |
-| 21 | `video/video2-page 21.mp4` (480×854, 11 MB) | `assets/media/video-trang-21.mp4` (giữ nguyên hình/tiếng) |
+| 22 (ảnh gốc `21.png`) | `video/video2-page 21.mp4` (480×854, 11 MB) | `assets/media/video-trang-21.mp4` (giữ nguyên hình/tiếng) |
 
 - Nút **“Xem video”** đặt ngay trên trang (vị trí chỉnh bằng `button: { x, y }`, tính theo % trang) và một nút
   phía dưới sách khi trang đó đang mở. Có ở cả chế độ sách lật và cuộn dọc.

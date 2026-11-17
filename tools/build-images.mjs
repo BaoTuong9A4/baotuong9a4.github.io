@@ -18,13 +18,19 @@ const pad = (n) => String(n).padStart(3, '0');
 const MEDIA = JSON.parse(await fs.readFile(path.join(ROOT, 'tools', 'media.json'), 'utf8'));
 const videoPages = new Map((MEDIA.videos || []).filter((v) => v.fillMissingPage).map((v) => [v.page, path.join(ROOT, '.tmp', 'video-pages', v.page + '.png')]));
 
-// Ảnh nối thêm cuối sách theo danh sách tường minh (tools/pages.json), không theo thứ tự tên tệp.
-const APPEND = JSON.parse(await fs.readFile(path.join(ROOT, 'tools', 'pages.json'), 'utf8')).append || [];
+// Ảnh thay thế / chèn / nối thêm theo danh sách tường minh (tools/pages.json), không theo thứ tự tên tệp.
+const PJ = JSON.parse(await fs.readFile(path.join(ROOT, 'tools', 'pages.json'), 'utf8'));
+const APPEND = PJ.append || [];
+const REPLACE = PJ.replace || {};       // { số trang gốc: tệp thay thế }
+const INSERT = PJ.insertAfter || {};    // { số trang gốc: [tệp chèn ngay sau] }
 const norm = (s) => s.normalize('NFC');
-const appendSet = new Set(APPEND.map(norm));
+const named = [...APPEND, ...Object.values(REPLACE), ...Object.values(INSERT).flat()];
+const appendSet = new Set(named.map(norm));
+if (appendSet.size !== named.length) { console.error('tools/pages.json: một ảnh được khai báo nhiều lần.'); process.exit(1); }
 const entries = (await fs.readdir(SRC, { withFileTypes: true })).filter((e) => e.isFile() && !e.name.startsWith('.'));
 const appendFound = new Map(entries.filter((e) => appendSet.has(norm(e.name))).map((e) => [norm(e.name), e.name]));
-for (const a of APPEND) if (!appendFound.has(norm(a))) { console.error(`Không tìm thấy ảnh nối thêm: ${a}`); process.exit(1); }
+for (const a of named) if (!appendFound.has(norm(a))) { console.error(`Không tìm thấy ảnh khai báo trong tools/pages.json: ${a}`); process.exit(1); }
+const real = (a) => appendFound.get(norm(a));
 const pages = new Map();
 const problems = [];
 for (const e of entries) {
@@ -47,15 +53,12 @@ for (let i = 1; i <= max; i++) {
   } else problems.push(`Thiếu trang ${i}`);
 }
 
-const hashes = new Map();
-const appendNames = APPEND.map((a) => appendFound.get(norm(a)));
-for (const [label, file] of [...nums.map((n) => [n, pages.get(n)]), ...appendNames.map((f) => [f, f])]) {
-  const h = crypto.createHash('sha256').update(await fs.readFile(path.join(SRC, file))).digest('hex');
-  if (hashes.has(h)) problems.push(`Nội dung trùng lặp: ${hashes.get(h)} và ${label}`);
-  else hashes.set(h, label);
+const appendNames = APPEND.map(real);
+for (const k of [...Object.keys(REPLACE), ...Object.keys(INSERT)]) {
+  if (!/^\d+$/.test(k) || !(pages.has(Number(k)) || videoPages.has(Number(k)))) problems.push(`tools/pages.json: không có trang gốc số ${k}`);
 }
 if (problems.length) { console.error('Dừng lại vì phát hiện vấn đề:\n - ' + problems.join('\n - ')); process.exit(1); }
-console.log(`Nguồn: ${SRC}\nTìm thấy ${nums.length} ảnh trang (số ${nums[0]} → ${max}), không trùng.`);
+console.log(`Nguồn: ${SRC}\nTìm thấy ${nums.length} ảnh trang (số ${nums[0]} → ${max}).`);
 if (filled.length) console.log(`Trang không có ảnh, dựng từ khung hình video: ${filled.join(', ')}`);
 
 /** Trang video: khung hình thật của video đặt giữa nền mờ cùng khung hình, đúng khổ trang. */
@@ -78,10 +81,27 @@ async function videoPageImage(frame, W, H) {
   const left = Math.round((W - fw) / 2); const top = Math.round((H - fh) / 2);
   return sharp(bg).composite([{ input: shadow, left: left - pad, top: top - pad }, { input: fg, left, top }]).png().toBuffer();
 }
-const first = await sharp(path.join(SRC, pages.get(nums[0]))).metadata();
+const coverFile = REPLACE['1'] ? real(REPLACE['1']) : pages.get(nums[0]);
+const first = await sharp(path.join(SRC, coverFile)).metadata(); // khổ trang chuẩn = khổ bìa
 for (const n of filled) pages.set(n, { buffer: await videoPageImage(videoPages.get(n), first.width, first.height), label: `khung hình video trang ${n}` });
-const allNums = [...pages.keys()].sort((a, b) => a - b);
-appendNames.forEach((f, k) => { const n = max + 1 + k; pages.set(n, f); allNums.push(n); console.log(`Nối thêm trang ${n}: ${f}`); });
+
+// Dựng thứ tự cuối cùng: trang gốc theo SỐ (thay thế nếu có, chèn ngay sau nếu có), rồi trang nối thêm.
+const seq = [];
+for (const n of [...pages.keys()].sort((a, b) => a - b)) {
+  if (REPLACE[n]) { seq.push(real(REPLACE[n])); console.log(`Thay trang ${n}: ${pages.get(n)} → ${real(REPLACE[n])}`); }
+  else seq.push(pages.get(n));
+  for (const f of INSERT[n] || []) { seq.push(real(f)); console.log(`Chèn sau trang gốc ${n} (thành trang ${seq.length}): ${real(f)}`); }
+}
+for (const f of appendNames) { seq.push(f); console.log(`Nối thêm trang ${seq.length}: ${f}`); }
+const hashes = new Map();
+for (const [i, e] of seq.entries()) {
+  const h = crypto.createHash('sha256').update(typeof e === 'string' ? await fs.readFile(path.join(SRC, e)) : e.buffer).digest('hex');
+  if (hashes.has(h)) problems.push(`Nội dung trùng lặp: trang ${hashes.get(h)} và trang ${i + 1}`);
+  else hashes.set(h, i + 1);
+}
+if (problems.length) { console.error('Dừng lại vì phát hiện vấn đề:\n - ' + problems.join('\n - ')); process.exit(1); }
+pages.clear(); seq.forEach((e, i) => pages.set(i + 1, e));
+const allNums = seq.map((_, i) => i + 1);
 
 /** Ảnh khác tỉ lệ trang: giữ NGUYÊN ảnh (không cắt, không kéo), đặt giữa khung đúng tỉ lệ trang;
  *  phần dư là chính ảnh đó kéo giãn + làm mờ để chuyển màu liền mạch. */
@@ -125,11 +145,11 @@ for (const n of allNums) {
 }
 console.log();
 
-const js = `// TỰ ĐỘNG TẠO bởi tools/build-images.mjs — không sửa tay.\n// Thứ tự trang theo số: 1 → ${allNums.at(-1)}${appendNames.length ? ` (trang ${max + 1}+ nối thêm từ tools/pages.json)` : ''}.\nwindow.BOOK_PAGES = ${JSON.stringify(manifest.map(({ n, w, h, full, md, thumb, videoPage }) => ({ n, w, h, full, md, thumb, ...(videoPage ? { videoPage } : {}) })), null, 0).replace(/},{/g, '},\n  {')};\n`;
+const js = `// TỰ ĐỘNG TẠO bởi tools/build-images.mjs — không sửa tay.\n// ${allNums.at(-1)} trang, thứ tự theo tools/pages.json (thay thế / chèn / nối thêm) và số ảnh gốc.\nwindow.BOOK_PAGES = ${JSON.stringify(manifest.map(({ n, w, h, full, md, thumb, videoPage }) => ({ n, w, h, full, md, thumb, ...(videoPage ? { videoPage } : {}) })), null, 0).replace(/},{/g, '},\n  {')};\n`;
 await fs.writeFile(path.join(ROOT, 'assets', 'js', 'manifest.js'), js);
 
 // Ảnh chia sẻ mạng xã hội (1200×630) và biểu tượng, lấy từ bìa thật.
-const cover = path.join(SRC, pages.get(nums[0]));
+const cover = path.join(SRC, coverFile);
 await fs.mkdir(path.join(ROOT, 'assets', 'img'), { recursive: true });
 const bg = await sharp(cover).resize(1200, 630, { fit: 'cover' }).blur(28).modulate({ brightness: 0.55 }).toBuffer();
 const fg = await sharp(cover).resize({ height: 590 }).toBuffer();

@@ -21,7 +21,7 @@ window.BOOK_CONFIG = {
   },
 
   /* ---------- VIDEO ----------
-   * Gắn video vào số trang (số trong tên ảnh gốc, bìa là trang 1).
+   * Gắn video vào số trang hiển thị trong sách (bìa là trang 1; xem thứ tự ở tools/pages.json).
    * `src`: tệp .mp4 (H.264/AAC). `poster`: ảnh đại diện. `width`/`height`: kích thước video (để khung xem đúng tỉ lệ).
    * `button`: vị trí nút “Xem video” trên trang — x, y là toạ độ TÂM nút, tính theo % chiều rộng/cao trang.
    */
@@ -30,9 +30,9 @@ window.BOOK_CONFIG = {
       src: 'assets/media/video-trang-04.mp4', poster: 'assets/media/video-trang-04.jpg', width: 1280, height: 720,
       title: 'Video · trang 4', button: { x: 50, y: 91 },
     }],
-    21: [{
+    22: [{  // ảnh gốc 21.png — thành trang 22 sau khi chèn trang “Tri ân cô Hằng” vào sau trang 19
       src: 'assets/media/video-trang-21.mp4', poster: 'assets/media/video-trang-21.jpg', width: 480, height: 854,
-      title: 'Video · trang 21', button: { x: 53, y: 100 },  // sát mép dưới, trên hình cuốn sách trang trí
+      title: 'Video · trang 22', button: { x: 53, y: 100 },  // sát mép dưới, trên hình cuốn sách trang trí
     }],
   },
 };
